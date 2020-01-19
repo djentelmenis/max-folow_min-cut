@@ -37,42 +37,39 @@ def bfs(graph, r_graph, s, t):
 
 
 # Finds the minimum articulation points, that would disconnect the source from the sink, by looping through
-# the graph once and removing vertices in O(V), copying the adjacency matrix in O(V^2) and using Edmonds-Karp
-# in O(V * E^2) to check if that changes the max flow, so total O(V * (V + V^2 + V * E^2)) = O(V^3 * E^2)
+# the graph once and removing vertices in O(V), removing and restoring nodes in O(V) and using Edmonds-Karp
+# in O(V * E^2) to check if that changes the max flow, so total O(V * (V + V + V * E^2)) = O(V^2 * E^2)
 # Could be optimized by removing the deepcopy from the while loop
 def get_min_cut(a_matrix, a_list, k, s, t):
     cut_nodes = []
     remaining_flow = k
-    working_graph1 = deepcopy(a_matrix)
-    working_graph2 = deepcopy(a_matrix)
     v = 0
     while remaining_flow > 0 and v < len(a_matrix):
         # Skips source and sink
         if v == s or v == t:
             v += 2
             continue
-        # Remove a node from the working graph by removing
-        # references to the current node and connections from this node
-        for i, ref in enumerate(working_graph1[v]):
-            if ref > 0:
-                working_graph1[i][v] = 0
-        working_graph1[v] = [0] * len(a_matrix)
 
-        new_flow = get_max_flow(working_graph1, s, t)
+        # Remove a node from the graph but saves the connections for later
+        for i, ref in enumerate(a_matrix[v]):
+            if ref > 0:
+                a_matrix[i][v] = 0
+        removed_node = deepcopy(a_matrix[v])
+        a_matrix[v] = [0] * len(a_matrix)
+
+        new_flow = get_max_flow(a_matrix, s, t)
         if new_flow < remaining_flow:
-            # if removed node decreases flow, it is an articulation point,
-            # and the altered graph is saved for next iterations to avoid duplicates
-            working_graph2 = deepcopy(working_graph1)
-            # Get name or original node by finding the removed node in adjacency list by index
-            # and removing the appended name
+            # Get name or original node by
+            # finding the removed node in adjacency list by index and removing the appended name
             cut_nodes.append(list(a_list.keys())[v][:-3])
             remaining_flow = new_flow
-            if remaining_flow == 0:
-                break
         else:
-            # if removed node had no effect,
-            # the graph is restored for next iterations to avoid false positives
-            working_graph1 = deepcopy(working_graph2)
+            # if removed node had no effect, the node and connections to it are
+            # restored for next iterations to avoid false positives
+            a_matrix[v] = deepcopy(removed_node)
+            for i in removed_node:
+                if i > 0:
+                    a_matrix[i][v] = 1
         v += 2
 
     return cut_nodes
@@ -153,9 +150,9 @@ def main(i=2, source=0, sink=20):
     except:
         print('Source or sink outside the graph')
 
-    if S and T:
+    if S is not None and T is not None:
         max_flow = get_max_flow(trans_adj_matrix, S, T)                                     # O(E^2 * V)
-        articulation_points = get_min_cut(trans_adj_matrix, trans_list, max_flow, S, T)     # O(E^2 * V^3)
+        articulation_points = get_min_cut(trans_adj_matrix, trans_list, max_flow, S, T)     # O(E^2 * V^2)
 
         print('There exist', max_flow, 'disjoint paths between', source, 'and', sink, 'and')
         print('There exist', len(articulation_points), 'articulation points between', source, 'and', sink, ':')
